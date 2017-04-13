@@ -1,7 +1,7 @@
 # gitlab-issues
 
-A simple tool to extract lists of gitlab issues in both text and CSV format.  It uses the
-handy [xanzy/go-gitlab](https://github.com/xanzy/go-gitlab) library to extract
+A simple tool to export gitlab issues in both text and CSV format.  It uses the
+handy [xanzy/go-gitlab](https://github.com/xanzy/go-gitlab) library to pull
 the issues from gitlab.
 
 ## Note

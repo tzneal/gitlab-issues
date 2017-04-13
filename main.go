@@ -15,11 +15,12 @@ import (
 )
 
 func main() {
-	baseUrl := flag.String("url", "https://gitlab.com/", "base URL to connect to")
+	baseURL := flag.String("url", "https://gitlab.com/", "base URL to connect to")
 	token := flag.String("token", "", "gitlab token from User Settings->Account page")
 	project := flag.String("project", "", "project name")
 	milestone := flag.String("milestone", "", "project milestone")
 	label := flag.String("label", "", "issues with any maching label will be returned, multiple labels can be separated by a comma")
+	exLabel := flag.String("xlabel", "", "issues with any matching label will be excluded, multiple labels can be separated with a comma")
 	outputCSV := flag.Bool("csv", false, "format output as CSV")
 	file := flag.String("o", "", "specify filename to write output to instead of stdout")
 	flag.Parse()
@@ -31,11 +32,11 @@ func main() {
 	git := gitlab.NewClient(nil, *token)
 
 	// ensure the URI is terminated with a slash
-	if !strings.HasSuffix(*baseUrl, "/") {
-		*baseUrl = *baseUrl + "/"
+	if !strings.HasSuffix(*baseURL, "/") {
+		*baseURL = *baseURL + "/"
 	}
 
-	git.SetBaseURL(*baseUrl + "api/v3")
+	git.SetBaseURL(*baseURL + "api/v3")
 
 	// setup list filtering options
 	opts := &gitlab.ListProjectIssuesOptions{}
@@ -64,6 +65,9 @@ func main() {
 		maxPages = rsp.LastPage
 		allIssues = append(allIssues, issues...)
 	}
+
+	// filter out any issues excluded by label
+	allIssues = filterOutLabels(allIssues, *exLabel)
 
 	// sort issues by the project specific issue ID
 	sort.Slice(allIssues, func(i int, j int) bool {
@@ -103,4 +107,31 @@ func main() {
 
 func fieldsFrom(issue *gitlab.Issue) []string {
 	return []string{strconv.Itoa(issue.IID), issue.State, issue.Assignee.Name, strings.Join(issue.Labels, ","), issue.Title}
+}
+
+// filterOutLabels removes issues that have are marked with a label
+func filterOutLabels(issues []*gitlab.Issue, exLabels string) []*gitlab.Issue {
+	if exLabels == "" {
+		return issues
+	}
+	labels := map[string]struct{}{}
+	for _, l := range strings.Split(exLabels, ",") {
+		labels[l] = struct{}{}
+	}
+	for i := 0; i < len(issues); {
+		issue := issues[i]
+		skip := false
+		for _, l := range issue.Labels {
+			if _, ok := labels[l]; ok {
+				skip = true
+			}
+		}
+		if skip {
+			issues[i] = issues[len(issues)-1]
+			issues = issues[0 : len(issues)-1]
+		} else {
+			i++
+		}
+	}
+	return issues
 }
